@@ -88,6 +88,7 @@ def main_mode_1(movie_path, movie_info):
     number = movie_info["number"]
 
     movie_target_dir = create_movie_folder_by_rule(movie_info)
+    logger.info(f"movie_target_dir: [{movie_target_dir}]")
     if movie_target_dir is None:
         moveFailedFolder(movie_path)
         return
@@ -114,12 +115,13 @@ def main_mode_1(movie_path, movie_info):
     
     movie_suffix = os.path.splitext(movie_path)[-1]
     movie_file_name_template = config.getStrValue("template.movie_file_name_template")
-    logger.debug(f"movie_file_name_template: [{movie_file_name_template}]")
+    logger.info(f"movie_file_name_template: [{movie_file_name_template}]")
     target_file_name = movie_file_name_template.format(**movie_info)
 
     # 生成nfo文件
     if config.getBoolValue("capture.write_nfo_switch"):
-        nfo_path = legalization_of_file_path(os.path.join(movie_target_dir, f"{target_file_name}.nfo"))
+        nfo_path = legalization_of_file_path(os.path.join(movie_target_dir, f"{target_file_name}.nfo").replace('\\', '/'))
+        logger.info(f"nfo_path: [{nfo_path}]")
         try:
             print_nfo_file(nfo_path,fanart_path,poster_path,thumb_path,movie_info)
             logger.info("write nfo OK")
@@ -129,7 +131,7 @@ def main_mode_1(movie_path, movie_info):
             return
     
     # TODO link mode
-    new_movie_path = legalization_of_file_path(os.path.join(movie_target_dir, target_file_name + movie_suffix))
+    new_movie_path = legalization_of_file_path(os.path.join(movie_target_dir, target_file_name + movie_suffix).replace('\\', '/'))
     logger.info(f"{movie_path} move to {new_movie_path}")
     shutil.move(movie_path, new_movie_path)
     logger.info("move OK")
@@ -138,7 +140,7 @@ def main_mode_1(movie_path, movie_info):
         l = len(movie_path)-len(movie_suffix)
         sub_path = movie_path[:l]+sub_suffix
         if os.path.isfile(sub_path):
-            target_sub_path = os.path.join(movie_target_dir, target_file_name + sub_suffix)
+            target_sub_path = os.path.join(movie_target_dir, target_file_name + sub_suffix).replace('\\', '/')
             logger.info(f"find sub file at [{sub_path}], move to [{target_sub_path}]")
             shutil.move(sub_path, target_sub_path)
 
@@ -159,11 +161,11 @@ def handler_cover(movie_info, movie_target_dir):
             poster_path = f"{number}{movie_info['cn_sub']}-poster{ext}"
             thumb_path = f"{number}{movie_info['cn_sub']}-thumb{ext}"
         
-        full_filepath = os.path.join(movie_target_dir, thumb_path)
+        full_filepath = os.path.join(movie_target_dir, thumb_path).replace('\\', '/')
         succ = image_download(cover_url, full_filepath)
-        shutil.copyfile(full_filepath, os.path.join(movie_target_dir, poster_path))
+        shutil.copyfile(full_filepath, os.path.join(movie_target_dir, poster_path).replace('\\', '/'))
         if succ and not config.getBoolValue("capture.jellyfin"):
-            shutil.copyfile(full_filepath, os.path.join(movie_target_dir, fanart_path))
+            shutil.copyfile(full_filepath, os.path.join(movie_target_dir, fanart_path).replace('\\', '/'))
             # TODO cutImage(imagecut, path, thumb_path, poster_path, bool(conf.face_uncensored_only() and not uncensored))
     
     return fanart_path, poster_path, thumb_path
@@ -173,8 +175,8 @@ def handler_cover(movie_info, movie_target_dir):
 
 def moveFailedFolder(movie_path):
     failed_folder = config.getStrValue("common.failed_output_folder")
-    new_movie_path = os.path.join(failed_folder, os.path.basename(movie_path))
-    mtxt = os.path.abspath(os.path.join(failed_folder, 'where_was_i_before_being_moved.txt'))
+    new_movie_path = os.path.join(failed_folder, os.path.basename(movie_path)).replace('\\', '/')
+    mtxt = os.path.abspath(os.path.join(failed_folder, 'where_was_i_before_being_moved.txt').replace('\\', '/'))
     logger.info(f"Move to Failed output folder, see {mtxt}")
 
     with open(mtxt, 'a', encoding='utf-8') as wwibbmt:
@@ -193,16 +195,15 @@ def create_movie_folder_by_rule(movie_info):
     success_folder = config.getStrValue("common.success_output_folder")
     location_template = config.getStrValue("template.location_template")
     relative_path = location_template.format(**movie_info)
-    path = os.path.join(success_folder, f'./{relative_path.strip()}')
+    path = os.path.join(success_folder, f'{relative_path.strip()}').replace('\\', '/')
     path = legalization_of_file_path(path)
-    
     try:
         create_folder(path)
     except:
         logger.error(f"Fatal error! Can not make folder [{path}]")
         return None
 
-    return os.path.normpath(path)
+    return os.path.normpath(path).replace('\\', '/')
 
 
 def image_download(url:str, full_filepath:str) -> bool:
@@ -221,7 +222,7 @@ def image_download(url:str, full_filepath:str) -> bool:
 
 
 def extrafanart_download(data, movie_target_dir):
-    extrafanart_path = os.path.join(movie_target_dir, config.getStrValue("capture.extrafanart_folder_name"))
+    extrafanart_path = os.path.join(movie_target_dir, config.getStrValue("capture.extrafanart_folder_name")).replace('\\', '/')
     create_folder(extrafanart_path)
     if config.getIntValue("capture.extrafanart_parallel_download") > 0:
         extrafanart_download_threadpool(data, extrafanart_path)
@@ -229,13 +230,13 @@ def extrafanart_download(data, movie_target_dir):
         create_folder(extrafanart_path)
         for index, url in enumerate(data, start=1):
             jpg_filename = f'extrafanart-{index}{image_ext(url)}'
-            jpg_fullpath = os.path.join(extrafanart_path, jpg_filename)
+            jpg_fullpath = os.path.join(extrafanart_path, jpg_filename).replace('\\', '/')
             image_download(url,jpg_fullpath)
 
 def extrafanart_download_threadpool(url_list, extrafanart_path):    
     dn_list = []
     for i, url in enumerate(url_list, start=1):
-        jpg_fullpath = os.path.join(extrafanart_path, f'extrafanart-{i}{image_ext(url)}') 
+        jpg_fullpath = os.path.join(extrafanart_path, f'extrafanart-{i}{image_ext(url)}').replace('\\', '/')
         if config.getBoolValue("capture.download_only_missing_images") and not file_not_exist_or_empty(jpg_fullpath):
             continue
         dn_list.append((url, jpg_fullpath))
